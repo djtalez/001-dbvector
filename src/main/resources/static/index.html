@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VectorLab - La Base Vectorielle Humaine</title>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+
+    <header class="bg-indigo-700 text-white py-6 shadow-md">
+        <div class="max-w-5xl mx-auto px-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight">VectorLab</h1>
+                <p class="text-indigo-200 text-sm">Comprendre la recherche par le sens (Embeddings & Vector Stores)</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-2 gap-8" x-data="labApp()">
+
+        <div class="space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                    <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full inline-flex items-center justify-center text-sm">1</span>
+                    Alimenter la base vectoriel
+                </h2>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium uppercase text-slate-500 mb-1">Contenu du document</label>
+                        <textarea x-model="newDoc.content" rows="3" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Ex: Un embedding transforme du texte en un vecteur de nombres dans un espace à haute dimension..."></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium uppercase text-slate-500 mb-1">Catégorie (Metadata)</label>
+                        <input x-model="newDoc.category" type="text" class="w-full p-2 border border-slate-300 rounded-lg text-sm" placeholder="Ex: Tutoriel, Sciences, Culture">
+                    </div>
+                    <button @click="indexDocument()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg text-sm transition shadow-sm">
+                        Transformer en vecteur & stocker
+                    </button>
+
+                    <div class="relative">
+                        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200"></div></div>
+                        <div class="relative flex justify-center text-xs uppercase"><span class="bg-white px-2 text-slate-400">ou importer un PDF</span></div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium uppercase text-slate-500 mb-1">Fichier PDF</label>
+                        <input type="file" accept="application/pdf,.pdf" @change="onPdfSelected($event)" class="w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 file:font-medium hover:file:bg-indigo-100">
+                        <p x-show="pdfFile" class="mt-1 text-xs text-slate-500" x-text="pdfFile?.name"></p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium uppercase text-slate-500 mb-1">Catégorie du PDF</label>
+                        <input x-model="pdfCategory" type="text" class="w-full p-2 border border-slate-300 rounded-lg text-sm" placeholder="Ex: Cours, Documentation, Article">
+                    </div>
+                    <button @click="indexPdf()" :disabled="!pdfFile || pdfUploading" class="w-full bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium py-2 rounded-lg text-sm transition shadow-sm">
+                        Extraire le texte & indexer le PDF
+                    </button>
+                </div>
+                <p x-text="indexStatus" class="mt-2 text-xs text-green-600 font-medium"></p>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-semibold text-slate-900 mb-2 flex items-center gap-2">
+                    <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full inline-flex items-center justify-center text-sm">2</span>
+                    Anatomie d'un "Embedding"
+                </h2>
+                <p class="text-slate-500 text-xs mb-4">Voyez comment l'ordinateur transforme le texte en coordonnées mathématiques abstraites.</p>
+
+                <input x-model="debugText" @input.debounce.500ms="getEmbeddingDebug()" type="text" class="w-full p-2 border border-slate-300 rounded-lg text-sm mb-3" placeholder="Tapez un mot ou une phrase...">
+
+                <div x-show="embeddingData" class="bg-slate-900 text-emerald-400 p-3 rounded-lg font-mono text-xs space-y-1 overflow-x-auto">
+                    <p class="text-slate-400">// Taille du vecteur : <span x-text="embeddingData.length"></span> dimensions</p>
+                    <p>[ <span x-text="embeddingData.preview?.join(', ')"></span>, ... ]</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-full">
+            <h2 class="text-lg font-semibold text-slate-900 mb-2 flex items-center gap-2">
+                <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full inline-flex items-center justify-center text-sm">3</span>
+                Recherche par le sens
+            </h2>
+            <p class="text-slate-500 text-xs mb-4">Le système va projeter votre recherche dans l'espace mathématique et ramasser ce qui est topologiquement le plus proche.</p>
+
+            <div class="flex gap-2 mb-6">
+                <input x-model="searchQuery" @keyup.enter="search()" type="text" class="flex-1 p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Ex: Comment représenter le sens d'une phrase ?">
+                <button @click="search()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 rounded-lg text-sm font-medium transition">
+                    Chercher
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <h3 class="text-xs font-bold uppercase text-slate-400 tracking-wider">Résultats du Vector Store (Top Proximité)</h3>
+
+                <template x-if="results.length === 0">
+                    <p class="text-sm text-slate-400 italic">Aucun résultat. Essayez d'alimenter la base à gauche d'abord !</p>
+                </template>
+
+                <div class="space-y-3">
+                    <template x-for="(res, index) in results" :key="index">
+                        <div class="p-3 border rounded-xl bg-slate-50 border-slate-200 relative overflow-hidden">
+                            <div class="absolute top-2 right-2 bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-0.5 rounded-full">
+                                Score : <span x-text="formatScore(res.score)"></span>
+                            </div>
+                            <p class="text-sm text-slate-800 font-medium pr-20" x-text="res.content"></p>
+                            <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                                <span class="bg-slate-200 px-2 py-0.5 rounded">Catégorie: <strong x-text="res.metadata?.category ?? 'N/A'"></strong></span>
+                                <span x-show="res.metadata?.sourceType === 'pdf'" class="bg-violet-100 text-violet-800 px-2 py-0.5 rounded">
+                                    PDF: <strong x-text="res.metadata?.filename"></strong>
+                                    <span x-show="res.metadata?.totalChunks > 1"> (chunk <span x-text="(res.metadata?.chunkIndex ?? 0) + 1"></span>/<span x-text="res.metadata?.totalChunks"></span>)</span>
+                                </span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function labApp() {
+            return {
+                newDoc: { content: '', category: '' },
+                pdfFile: null,
+                pdfCategory: '',
+                pdfUploading: false,
+                indexStatus: '',
+                debugText: '',
+                embeddingData: null,
+                searchQuery: '',
+                results: [],
+
+                formatScore(score) {
+                    if (score == null || Number.isNaN(Number(score))) {
+                        return 'N/A';
+                    }
+                    const normalized = Number(score) <= 1 ? Number(score) * 100 : Number(score);
+                    return normalized.toFixed(1) + '%';
+                },
+
+                async indexDocument() {
+                    if (!this.newDoc.content) return;
+                    this.indexStatus = 'Calcul du vecteur et stockage...';
+                    const res = await fetch('/api/vector/index', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.newDoc)
+                    });
+                    if (res.ok) {
+                        this.indexStatus = 'Document indexé dans le Vector Store !';
+                        this.newDoc.content = '';
+                        setTimeout(() => this.indexStatus = '', 3000);
+                    }
+                },
+
+                onPdfSelected(event) {
+                    this.pdfFile = event.target.files[0] ?? null;
+                },
+
+                async indexPdf() {
+                    if (!this.pdfFile) return;
+                    this.pdfUploading = true;
+                    this.indexStatus = 'Extraction du texte PDF et indexation...';
+                    const formData = new FormData();
+                    formData.append('file', this.pdfFile);
+                    if (this.pdfCategory) {
+                        formData.append('category', this.pdfCategory);
+                    }
+                    try {
+                        const res = await fetch('/api/vector/index-pdf', { method: 'POST', body: formData });
+                        const data = await res.json();
+                        if (res.ok) {
+                            this.indexStatus = `PDF "${data.filename}" indexé : ${data.chunksIndexed} chunk(s), ${data.charactersExtracted} caractères extraits.`;
+                            this.pdfFile = null;
+                            this.pdfCategory = '';
+                        } else {
+                            this.indexStatus = data.message ?? 'Erreur lors de l\'indexation du PDF.';
+                        }
+                    } catch {
+                        this.indexStatus = 'Erreur réseau lors de l\'upload du PDF.';
+                    } finally {
+                        this.pdfUploading = false;
+                        setTimeout(() => this.indexStatus = '', 5000);
+                    }
+                },
+
+                async getEmbeddingDebug() {
+                    if (!this.debugText) {
+                        this.embeddingData = null;
+                        return;
+                    }
+                    const res = await fetch(`/api/vector/embed-debug?text=${encodeURIComponent(this.debugText)}`);
+                    this.embeddingData = await res.json();
+                },
+
+                async search() {
+                    if (!this.searchQuery) return;
+                    const res = await fetch(`/api/vector/search?query=${encodeURIComponent(this.searchQuery)}`);
+                    this.results = await res.json();
+                }
+            };
+        }
+    </script>
+</body>
+</html>

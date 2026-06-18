@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: vector-lab
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  ai:
+    vectorstore:
+      qdrant:
+        host: localhost
+        port: 6334
+        collection-name: ged-documents
+        initialize-schema: true
+    embedding:
+      transformer:
+        tokenizer:
+          options:
+            padding: true
+
+server:
+  port: 8090
+
+vector-lab:
+  pdf:
+    chunk-size: 800
+    chunk-overlap: 100
